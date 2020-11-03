@@ -1,5 +1,5 @@
 from args import args
-from chessbook_parser import parse
+from chessbook_parser import parse_book, extract_special_tokens
 from bert import test_bert
 
 from nltk.tokenize import sent_tokenize
@@ -11,8 +11,36 @@ import os
 
 
 
+def context_parser(context):
+
+	for paragraph in context:
+		diagrams, moves, text_moves, num_items = extract_special_tokens(paragraph, num_item=True)
+		if num_items == None:
+			#paragraph = paragraph.replace('\n',' ')
+			#sentences = sent_tokenize(paragraph)
+			#for sentence in sentences:
+				#diagrams, moves, text_moves, num_items = extract_special_tokens(paragraph, diagram=True, move=True, text_move=True)
+				#print(sentence)
+			pass
+		else:
+			print("move sequence found")
+			print("-------------------\n"+paragraph+"\n-------------------")
+
+	exit()
+	
+
+
+
+
 def main():
-	paragraphs = parse()
+
+	#parse the contexts
+	path = os.path.join(args.book_path, args.chapter_name)
+	contexts = parse_book(path)
+
+	context_parser(contexts[0])
+	exit()
+
 	predictions = []
 	
 
