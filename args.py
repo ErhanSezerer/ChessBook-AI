@@ -39,7 +39,7 @@ parser.add_argument('--book_path', default='./data/book')
 parser.add_argument('--diagram_path', default='./data/diagrams')
 parser.add_argument('--moves_path', default='./data/moves')
 #other
-parser.add_argument('--chapter_name', default='CH6 - The Middle Game.txt')
+parser.add_argument('--chapter_name', default='CH6 - The Middle Game.txt')#CH4 - The Opening.txt
 parser.add_argument('--out_diag', type=str2bool, default=False)
 
 

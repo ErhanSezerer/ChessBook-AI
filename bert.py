@@ -25,10 +25,10 @@ def test_bert(text, model_path):
 
     #prepare the model
 	model = load_model(model_path)
-	model.to(device)
-	model.eval()
 	text_ids.to(device)
 	text_att_mask.to(device)
+	model.to(device)
+	model.eval()
 
     # forward pass
 	with torch.no_grad():

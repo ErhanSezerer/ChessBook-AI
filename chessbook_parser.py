@@ -106,6 +106,61 @@ def parse_text(path, write_diagrams=False):
 
 
 
+
+###
+###
+###
+###
+###
+def segment_numbered_items(paragraph, print_all=False):
+	#regex for finding numbered items to catch move pairs
+	r_seq_start = r'(\s?[\d]+\.)(\s*)?'
+	r_seq_mid = r',?(\s+)'
+	r_formal_seq_special = r'((Castles|castles)( )?(QR|KR)?|\.\.\.)'
+	r_formal_seq = r'(R|Kt|B|Q|K|P)(\n)?(R|Kt|B|Q|K|P)?(\n)?(-|x|X)(\n| )?(R|Kt|B|Q|K|P)(R|Kt|B|Q|K|P)?(\d)?(\s)?(double)?(\s)?(ch)?(\s)?(mate)?'
+	r_formal_seq_end = r'(\!+|\?+|;|,|\.)'
+	re_numbered_item = re.compile("(%s(%s|%s)%s?(%s(%s|%s)%s?)?)"%(r_seq_start, r_formal_seq, r_formal_seq_special, r_formal_seq_end, r_seq_mid, r_formal_seq, r_formal_seq_special, r_formal_seq_end))
+
+	#get the starting and ending indices of each numbered item in paragraph
+	found_numbered_items = re_numbered_item.finditer(paragraph)
+	new_paragraphs = []
+	sub_paragraph = ""
+	start = 0
+	next_start = 0
+	next_end = len(paragraph)
+	end = len(paragraph)
+
+	#segment them from text
+	for item in found_numbered_items:
+		next_start = item.start()
+		next_end = item.end()
+		if start==0 and next_start==0:
+				sub_paragraph += paragraph[next_start:next_end]
+		else:
+			if next_start > start:
+				if sub_paragraph:
+					new_paragraphs.append(sub_paragraph)
+				new_paragraphs.append(paragraph[start:next_start])
+				sub_paragraph = paragraph[next_start:next_end]
+			else:
+				sub_paragraph += paragraph[next_start:next_end]
+		
+		start = next_end
+	if sub_paragraph:
+			new_paragraphs.append(sub_paragraph)
+			new_paragraphs.append(paragraph[next_end:end])
+
+	if print_all:
+		for item in new_paragraphs:
+			print(item)
+			print("--------------")
+	return new_paragraphs
+
+
+
+
+
+
 ###
 ###
 ###
@@ -137,8 +192,8 @@ def extract_special_tokens(paragraph, diagram=False, move=False, text_move=False
 	r_seq_start = r'(\s?[\d]+\.)(\s*)?'
 	r_seq_mid = r',?(\s+)'
 	r_formal_seq_special = r'((Castles|castles)( )?(QR|KR)?|\.\.\.)'
-	r_formal_seq = r'(R|Kt|B|Q|K|P)(\n)?(R|Kt|B|Q|K|P)?(\n)?(-|x|X)(\n)?(R|Kt|B|Q|K|P)(R|Kt|B|Q|K|P)?(\d)?(\s)?(double)?(\s)?(ch)?(\s)?(mate)?'
-	r_formal_seq_end = r'(\!+|\?+)'
+	r_formal_seq = r'(R|Kt|B|Q|K|P)(\n)?(R|Kt|B|Q|K|P)?(\n)?(-|x|X)(\n| )?(R|Kt|B|Q|K|P)(R|Kt|B|Q|K|P)?(\d)?(\s)?(double)?(\s)?(ch)?(\s)?(mate)?'
+	r_formal_seq_end = r'(\!+|\?+|;|,|\.)'
 	re_numbered_item = re.compile("(%s(%s|%s)%s?(%s(%s|%s)%s?)?)"%(r_seq_start, r_formal_seq, r_formal_seq_special, r_formal_seq_end, r_seq_mid, r_formal_seq, r_formal_seq_special, r_formal_seq_end))
 	
 
