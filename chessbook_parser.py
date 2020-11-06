@@ -7,9 +7,9 @@ import numpy as np
 
 
 
-
-
-
+###############################################################################################################################
+#########################   LOCAL FUNCTIONS (HELPER FUNCTIONS)   ##############################################################
+###############################################################################################################################
 ###
 ###
 ###
@@ -40,9 +40,6 @@ def detect_paragraph_transitions(book_paragraphs):
 						bag_of_transition_paragraphs[paragraph_index] = [term]
 
 	return bag_of_transition_paragraphs
-
-
-
 ###
 ###
 ###
@@ -53,60 +50,6 @@ def print_bag_of_transition_paragraphs(book_paragraphs,bag_of_transition_paragra
 		print(book_paragraphs[item] + "\n")
 		print(bag_of_transition_paragraphs.get(item))
 		print("\n")
-
-
-
-
-
-###
-###
-###
-###
-###
-def parse_text(path, write_diagrams=False):
-	diagram_parse = False
-	diagram_count = 0
-	board = []
-	diagram_string = ""
-	book = ""
-
-	with open(path, "r", encoding="utf8") as file_handler:
-		for line in file_handler:
-			#diagram start
-			if line.strip()=="---------------------------------------" and not diagram_parse:
-				board.append(line)
-				diagram_string += line
-				diagram_parse = True
-				diagram_count += 1
-			#diagram cont.
-			elif diagram_parse and not any(x in line for x in ["Diag.","diag.","DIAG.","Diagram 19."]):
-				#empty line
-				if line==None or line=="" or line=="\n":
-					continue
-				board.append(line)
-				diagram_string += line
-			#diagram end
-			elif diagram_parse and any(x in line for x in ["Diag.","diag.","DIAG.","Diagram 19."]):
-				diagram_parse = False
-				if write_diagrams:
-					FEN_notation = get_FEN_notation(board)
-					diagram_string += ("\nFEN:" + FEN_notation)
-
-					filename = "Diagram" + str(diagram_count) + ".txt"
-					output_file = os.path.join(PARAM.diagram_path,filename)
-					with open(output_file, "w") as file2write:
-						file2write.write(diagram_string)
-				diagram_string = ""
-			#not a diagram
-			else:		
-				book += line
-	return book
-
-
-
-
-
-
 ###
 ###
 ###
@@ -155,12 +98,6 @@ def segment_numbered_items(paragraph, print_all=False):
 			print(item)
 			print("--------------")
 	return new_paragraphs
-
-
-
-
-
-
 ###
 ###
 ###
@@ -240,32 +177,172 @@ def extract_special_tokens(paragraph, diagram=False, move=False, text_move=False
 		print("----------------------------")
 
 	return 	diagrams, moves, text_moves, num_items
-
-
-
-
-
 ###
 ###
 ###
 ###
 ###
-def parse_book(book_path):
+### rearrange context for paragraphs between two move sequences depending on diagram referrals
+### inputs: list of strings (paragraphs)
+###			list of int (paragraph flags)
+### output: inputs: list of strings (newly organized paragraphs)
+###			list of int (newly organized paragraph flags)
+def parse_book_enhanceWdiags(contexts, contexts_flags):
+	new_contexts = []
+	new_context =[]	
+	new_contexts_flags = []
+	new_context_flags = []
+	last_diagram = 0
+	found_diag = False		
+	found_seqend = False
+	found_start = False
+	for i in range(len(contexts_flags)):
+		num_seq = contexts_flags[i].count(1)
+		
+		for j in range(len(contexts_flags[i])):
+			#case 0  -> no diag, no seq
+			if contexts_flags[i][j] == 0:
+				new_context.append(contexts[i][j])
+				new_context_flags.append(0)
+			#case 1  -> seq
+			elif contexts_flags[i][j] == 1:
+				if not found_start:
+					found_start=True
+					new_contexts.append(new_context)
+					new_contexts_flags.append(new_context_flags)
+					new_context = []
+					new_context_flags = []
+				if found_seqend:
+					found_seqend = False
+					
+				new_context.append(contexts[i][j])
+				new_context_flags.append(1)
+				num_seq -= 1
+				if num_seq == 0:
+					found_seqend = True
+			#case -1 -> diag, no seq
+			elif contexts_flags[i][j] == -1:
 
-	book = parse_text(book_path)
+				diagrams, _, _, _ = extract_special_tokens(contexts[i][j], diagram=True)
+				diag_ref = []
+				for diagram in diagrams:
+					diag_ref.append(re.findall(r'\d+', diagram[0].strip())[0])
+				min_diagref = min(diag_ref)
+				max_diagref = max(diag_ref)
+				if last_diagram == 0:
+					last_diagram = max_diagref
+
+				if not found_start:
+					found_start=True
+					new_contexts.append(new_context)
+					new_contexts_flags.append(new_context_flags)
+					new_context = []
+					new_context_flags = []
+			
+				if found_seqend:
+					if min_diagref > last_diagram:
+						new_contexts.append(new_context)
+						new_contexts_flags.append(new_context_flags)
+						new_context = []
+						new_context_flags = []
+						found_diag = True
+						new_context_flags.append(-1)
+					else:
+						new_context.append(contexts[i][j])
+						new_context_flags.append(-1)
+				else:
+					new_context.append(contexts[i][j])
+					new_context_flags.append(-1)
+		if not found_diag:
+			new_contexts.append(new_context)
+			new_contexts_flags.append(new_context_flags)
+			new_context = []
+			new_context_flags = []
+		found_diag = False
+	if len(new_context_flags) != 0:
+		new_contexts.append(new_context)
+		new_contexts_flags.append(new_context_flags)
+
+	return new_contexts, new_contexts_flags
+	#bag_of_transition_paragraphs = detect_paragraph_transitions(book_paragraphs)
+	#print_bag_of_transition_paragraphs(book_paragraphs, bag_of_transition_paragraphs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################################################################################
+#########################   GLOBAL FUNCTIONS (LIBRARY FUNCTIONS)   ############################################################
+###############################################################################################################################
+###
+###
+###
+###
+###
+def parse_text(path, write_diagrams=False):
+	diagram_parse = False
+	diagram_count = 0
+	board = []
+	diagram_string = ""
+	book = ""
+
+	with open(path, "r", encoding="utf8") as file_handler:
+		for line in file_handler:
+			#diagram start
+			if line.strip()=="---------------------------------------" and not diagram_parse:
+				board.append(line)
+				diagram_string += line
+				diagram_parse = True
+				diagram_count += 1
+			#diagram cont.
+			elif diagram_parse and not any(x in line for x in ["Diag.","diag.","DIAG.","Diagram 19."]):
+				#empty line
+				if line==None or line=="" or line=="\n":
+					continue
+				board.append(line)
+				diagram_string += line
+			#diagram end
+			elif diagram_parse and any(x in line for x in ["Diag.","diag.","DIAG.","Diagram 19."]):
+				diagram_parse = False
+				if write_diagrams:
+					FEN_notation = get_FEN_notation(board)
+					diagram_string += ("\nFEN:" + FEN_notation)
+
+					filename = "Diagram" + str(diagram_count) + ".txt"
+					output_file = os.path.join(PARAM.diagram_path,filename)
+					with open(output_file, "w") as file2write:
+						file2write.write(diagram_string)
+				diagram_string = ""
+			#not a diagram
+			else:		
+				book += line
+	return book
+###
+###
+###
+###
+###
+def parse_book(book):
 
 	#split the book into paragraphs
 	book_paragraphs = book.split("\n\n")[3:]#first three are chapter headlines
 
-
 	contexts = []
 	context =[]
-	count = 0
+	contexts_flags = []
+	context_flags = []
 	sequence_start = 0
 	previous_sequence = 0
 	for paragraph in book_paragraphs:
-		count+=1
-		diagrams, moves, text_moves, num_items = extract_special_tokens(paragraph, num_item=True)
+		diagrams, _, _, num_items = extract_special_tokens(paragraph, diagram=True, num_item=True)
 
 		if num_items != None:
 			sequence_start = int(re.search(r'^\d+', num_items[0][0].strip()).group())
@@ -275,30 +352,71 @@ def parse_book(book_path):
 				contexts.append(context)
 				context = []
 				context.append(paragraph)
+				contexts_flags.append(context_flags)
+				context_flags = []
 			else:
 				context.append(paragraph)
-				
+
+			context_flags.append(1)
 			previous_sequence = sequence_end
-			#print(str(sequence_start) + " " + str(sequence_end))
 		else:
 			context.append(paragraph)
-			#print("0")
+			context_flags.append(0)
 
-		
-	if len(context)>0:
+		if diagrams != None and context_flags[-1]==0:
+			context_flags[-1]=-1
+	if len(context) != 0:
 		contexts.append(context)
-	#print(len(contexts))
-	#print(count)
-	#print(contexts[0])
+		contexts_flags.append(context_flags)
+	
+	with open("/media/darg1/Data/Projects/chess/ChessBook-AI/before.txt", "w") as fil:
+		for i in range(len(contexts)):
+			for j in range(len(contexts[i])):
+				fil.write(contexts[i][j] + "\n")
+			fil.write("\n---------------\nNEW CONTEXT\n---------------\n")
 
-	return contexts
-	#bag_of_transition_paragraphs = detect_paragraph_transitions(book_paragraphs)
+	return parse_book_enhanceWdiags(contexts, contexts_flags)
+###
+###
+###
+###
+###
+def context_parser(context):
+	updated_paragraphs = []
+	for paragraph in context:
+		new_paragraph = paragraph.replace('\n',' ')
+		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
+		if num_items == None:
+			updated_paragraphs.append(paragraph)
+		else:
+			updated_paragraphs.extend(segment_numbered_items(new_paragraph))
 
-	#print_bag_of_transition_paragraphs(book_paragraphs, bag_of_transition_paragraphs)
+	for i in range(13):
+		print("---------")
+		print(updated_paragraphs[i])
+	exit()
 
-
-
-
-
-
+#TO DO: Do this sentence tokenization and classification for each context here
+	for paragraph in context:
+		new_paragraph = paragraph.replace('\n',' ')
+		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
+		if num_items == None:
+			#paragraph = paragraph.replace('\n',' ')
+			#sentences = sent_tokenize(paragraph)
+			#for sentence in sentences:
+				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
+				#print(sentence)
+			pass
+		else:
+			print("move sequence found")
+			print("-------------------\n"+paragraph+"\n-------------------")
+			for item in num_items:
+				print(item[0].strip() + "\n")
+			print("-------------------------------------------------------")			
+			par = segment_numbered_items(new_paragraph, print_all=True)
+			sentences = sent_tokenize(par[-1])
+			for sentence in sentences:
+				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
+				print(sentence)
+	exit()
 

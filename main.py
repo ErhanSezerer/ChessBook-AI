@@ -1,5 +1,5 @@
 from args import args
-from chessbook_parser import parse_book, extract_special_tokens, segment_numbered_items
+from chessbook_parser import parse_book, context_parser, parse_text
 from bert import test_bert
 
 from nltk.tokenize import sent_tokenize
@@ -11,43 +11,6 @@ import os
 
 
 
-def context_parser(context):
-	updated_paragraphs = []
-	for paragraph in context:
-		new_paragraph = paragraph.replace('\n',' ')
-		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
-		if num_items == None:
-			updated_paragraphs.append(paragraph)
-		else:
-			updated_paragraphs.extend(segment_numbered_items(new_paragraph))
-
-	for i in range(13):
-		print("---------")
-		print(updated_paragraphs[i])
-	exit()
-
-	for paragraph in context:
-		new_paragraph = paragraph.replace('\n',' ')
-		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
-		if num_items == None:
-			#paragraph = paragraph.replace('\n',' ')
-			#sentences = sent_tokenize(paragraph)
-			#for sentence in sentences:
-				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
-				#print(sentence)
-			pass
-		else:
-			print("move sequence found")
-			print("-------------------\n"+paragraph+"\n-------------------")
-			for item in num_items:
-				print(item[0].strip() + "\n")
-			print("-------------------------------------------------------")			
-			par = segment_numbered_items(new_paragraph, print_all=True)
-			sentences = sent_tokenize(par[-1])
-			for sentence in sentences:
-				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
-				print(sentence)
-	exit()
 	
 
 
@@ -55,10 +18,20 @@ def context_parser(context):
 
 def main():
 
-	#parse the contexts
+	#parse the text and segment out the diagrams
 	path = os.path.join(args.book_path, args.chapter_name)
-	contexts = parse_book(path)
+	book = parse_text(path)
 
+	#parse the book and find contexts
+	contexts, _ = parse_book(book)
+	with open("/media/darg1/Data/Projects/chess/ChessBook-AI/after.txt", "w") as fil:
+		for i in range(len(contexts)):
+			for j in range(len(contexts[i])):
+				fil.write(contexts[i][j] + "\n")
+			fil.write("\n---------------\nNEW CONTEXT\n---------------\n")
+
+	#
+	exit()
 	context_parser(contexts[0])
 	exit()
 
