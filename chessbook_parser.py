@@ -4,6 +4,7 @@ from diagram_extractor import *
 import re
 import string
 import numpy as np
+import csv
 
 
 
@@ -55,7 +56,33 @@ def print_bag_of_transition_paragraphs(book_paragraphs,bag_of_transition_paragra
 ###
 ###
 ###
-def segment_numbered_items(paragraph, print_all=False):
+def segment_numbered_items(context, paragraph_ids, print_all=False):
+	updated_paragraphs = []
+	updated_ids = []
+	for i in range(len(context)):
+		new_paragraph = context[i].replace('\n',' ')
+		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
+		if num_items == None:
+			updated_paragraphs.append(context[i])
+			updated_ids.append(paragraph_ids[i])
+		else:
+			temp_par = segment_numbered_items_helper(new_paragraph)
+			updated_paragraphs.extend(temp_par)
+			for item in temp_par:
+				updated_ids.append(paragraph_ids[i])
+				
+	if print_all:
+		for item in new_paragraphs:
+			print(item)
+			print("--------------")
+
+	return updated_paragraphs, updated_ids
+###
+###
+###
+###
+###
+def segment_numbered_items_helper(paragraph):
 	#regex for finding numbered items to catch move pairs
 	r_seq_start = r'(\s?[\d]+\.)(\s*)?'
 	r_seq_mid = r',?(\s+)'
@@ -93,10 +120,6 @@ def segment_numbered_items(paragraph, print_all=False):
 			new_paragraphs.append(sub_paragraph)
 			new_paragraphs.append(paragraph[next_end:end])
 
-	if print_all:
-		for item in new_paragraphs:
-			print(item)
-			print("--------------")
 	return new_paragraphs
 ###
 ###
@@ -247,6 +270,7 @@ def parse_book_enhanceWdiags(contexts, contexts_flags):
 						new_context_flags = []
 						found_diag = True
 						new_context_flags.append(-1)
+						new_context.append(contexts[i][j])
 					else:
 						new_context.append(contexts[i][j])
 						new_context_flags.append(-1)
@@ -266,6 +290,7 @@ def parse_book_enhanceWdiags(contexts, contexts_flags):
 	return new_contexts, new_contexts_flags
 	#bag_of_transition_paragraphs = detect_paragraph_transitions(book_paragraphs)
 	#print_bag_of_transition_paragraphs(book_paragraphs, bag_of_transition_paragraphs)
+
 
 
 
@@ -330,11 +355,22 @@ def parse_text(path, write_diagrams=False):
 ###
 ###
 ###
-def parse_book(book):
+def parse_book(book, write2file = False, chapter_num=0):
 
 	#split the book into paragraphs
 	book_paragraphs = book.split("\n\n")[3:]#first three are chapter headlines
 
+	#write the paragraphs to csv if specified
+	if write2file:
+		with open(os.path.join(args.data_path, "paragraphs_CH"+str(chapter_num)+".csv"), "w") as csvfile:
+			count=1
+			csvwriter = csv.writer(csvfile, delimiter='\t')
+			csvwriter.writerow(["id","paragraph"])
+			for paragraph in book_paragraphs:
+				csvwriter.writerow([count, paragraph])
+				count += 1	
+	
+	#divide the text into contexts using numbered move sequences
 	contexts = []
 	context =[]
 	contexts_flags = []
@@ -343,58 +379,62 @@ def parse_book(book):
 	previous_sequence = 0
 	for paragraph in book_paragraphs:
 		diagrams, _, _, num_items = extract_special_tokens(paragraph, diagram=True, num_item=True)
-
 		if num_items != None:
 			sequence_start = int(re.search(r'^\d+', num_items[0][0].strip()).group())
 			sequence_end = int(re.search(r'^\d+', num_items[-1][0].strip()).group())
-
 			if sequence_start < previous_sequence:
 				contexts.append(context)
 				context = []
-				context.append(paragraph)
 				contexts_flags.append(context_flags)
 				context_flags = []
-			else:
-				context.append(paragraph)
-
+			context.append(paragraph)
 			context_flags.append(1)
 			previous_sequence = sequence_end
 		else:
 			context.append(paragraph)
 			context_flags.append(0)
-
 		if diagrams != None and context_flags[-1]==0:
 			context_flags[-1]=-1
 	if len(context) != 0:
 		contexts.append(context)
 		contexts_flags.append(context_flags)
 	
-	with open("/media/darg1/Data/Projects/chess/ChessBook-AI/before.txt", "w") as fil:
-		for i in range(len(contexts)):
-			for j in range(len(contexts[i])):
-				fil.write(contexts[i][j] + "\n")
-			fil.write("\n---------------\nNEW CONTEXT\n---------------\n")
+	#improve the context separation by using diagram referrals
+	contexts,_ = parse_book_enhanceWdiags(contexts, contexts_flags)
 
-	return parse_book_enhanceWdiags(contexts, contexts_flags)
+	#create paragraph ids
+	paragraph_ids = []
+	paragraph_count = 0
+	for i in range(len(contexts)):
+		temp_ids = []
+		for j in range(len(contexts[i])):
+			paragraph_count +=1
+			temp_ids.append(paragraph_count)
+		paragraph_ids.append(temp_ids)
+
+	segmented_contexts = []
+	segmented_paragraph_ids = []
+	for i in range(len(contexts)):
+		context, par_ids = segment_numbered_items(contexts[i], paragraph_ids[i])
+		segmented_contexts.append(context)
+		segmented_paragraph_ids.append(par_ids)
+
+	#write contexts to csv file if specified
+	if write2file:
+		with open(os.path.join(args.data_path, "contexts_CH"+str(chapter_num)+".csv"), "w") as csvfile:
+			csvwriter = csv.writer(csvfile, delimiter='\t')
+			csvwriter.writerow(["context", "paragraph", "text"])
+			for i in range(len(segmented_contexts)):
+				for j in range(len(segmented_contexts[i])):
+					csvwriter.writerow([i, segmented_paragraph_ids[i][j], segmented_contexts[i][j]])
+
+	return segmented_contexts, segmented_paragraph_ids
 ###
 ###
 ###
 ###
 ###
 def context_parser(context):
-	updated_paragraphs = []
-	for paragraph in context:
-		new_paragraph = paragraph.replace('\n',' ')
-		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
-		if num_items == None:
-			updated_paragraphs.append(paragraph)
-		else:
-			updated_paragraphs.extend(segment_numbered_items(new_paragraph))
-
-	for i in range(13):
-		print("---------")
-		print(updated_paragraphs[i])
-	exit()
 
 #TO DO: Do this sentence tokenization and classification for each context here
 	for paragraph in context:

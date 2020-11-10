@@ -23,12 +23,7 @@ def main():
 	book = parse_text(path)
 
 	#parse the book and find contexts
-	contexts, _ = parse_book(book)
-	with open("/media/darg1/Data/Projects/chess/ChessBook-AI/after.txt", "w") as fil:
-		for i in range(len(contexts)):
-			for j in range(len(contexts[i])):
-				fil.write(contexts[i][j] + "\n")
-			fil.write("\n---------------\nNEW CONTEXT\n---------------\n")
+	contexts, paragraph_ids = parse_book(book, write2file=True, chapter_num=6)
 
 	#
 	exit()
