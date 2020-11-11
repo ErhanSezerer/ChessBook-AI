@@ -6,7 +6,8 @@ import string
 import numpy as np
 import csv
 
-
+from bert import test_bert
+from nltk.tokenize import sent_tokenize
 
 ###############################################################################################################################
 #########################   LOCAL FUNCTIONS (HELPER FUNCTIONS)   ##############################################################
@@ -453,29 +454,73 @@ def parse_book(book, write2file = False, chapter_num=0):
 ###
 ###
 ###
-def context_parser(context):
-
-#TO DO: Do this sentence tokenization and classification for each context here
-	for paragraph in context:
-		new_paragraph = paragraph.replace('\n',' ')
-		diagrams, moves, text_moves, num_items = extract_special_tokens(new_paragraph, num_item=True)
+def context_parser(context, context_id, paragraph_ids, write2file=False, chapter_num=6):
+	dataset = []
+	
+	for i in range(len(context)):
+		new_paragraph = context[i].replace('\n',' ')
+		_, _, _, num_items = extract_special_tokens(new_paragraph, num_item=True)
 		if num_items == None:
-			#paragraph = paragraph.replace('\n',' ')
-			#sentences = sent_tokenize(paragraph)
-			#for sentence in sentences:
-				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
-				#print(sentence)
-			pass
-		else:
-			print("move sequence found")
-			print("-------------------\n"+paragraph+"\n-------------------")
-			for item in num_items:
-				print(item[0].strip() + "\n")
-			print("-------------------------------------------------------")			
-			par = segment_numbered_items(new_paragraph, print_all=True)
-			sentences = sent_tokenize(par[-1])
+			sentences = sent_tokenize(new_paragraph)
 			for sentence in sentences:
-				#diagrams, moves, text_moves, num_items = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
-				print(sentence)
-	exit()
+				diagrams, moves, text_moves, _ = extract_special_tokens(sentence, diagram=True, move=True, text_move=True)
+				pred = test_bert(sentence, args.model_path)
+				row = []
+				row.append(context_id)
+				row.append(paragraph_ids[i])
+				row.append(sentence)
+				row.append(pred[0])
+				#moves
+				if moves != None:
+					text = ""
+					for j in range(len(moves)):
+						text += moves[j][0] + ":::"
+					row.append(text[0:-3])
+				else:
+					row.append("")
+				#textual move decriptions
+				if text_moves != None:
+					text = ""
+					for j in range(len(text_moves)):
+						text += text_moves[j][0] + ":::"
+					row.append(text[0:-3])
+				else:
+					row.append("")
+				#diagrams
+				if diagrams != None:
+					text = ""
+					for j in range(len(diagrams)):
+						text += diagrams[j][0] + ":::"
+					row.append(text[0:-3])
+				else:
+					row.append("")
+				dataset.append(row)	
+	
+				if write2file:
+					with open(os.path.join(args.data_path, "dataset_CH"+str(chapter_num)+".csv"), "a") as csvfile:
+						csvwriter = csv.writer(csvfile, delimiter='\t')
+						csvwriter.writerow(row)
+		else:
+			row = []
+			row.append(context_id)
+			row.append(paragraph_ids[i])
+			row.append(new_paragraph)
+			row.append("")	
+			row.append("")	
+			row.append("")	
+			row.append("")	
+			dataset.append(row)	
+	
+			if write2file:
+				with open(os.path.join(args.data_path, "dataset_CH"+str(chapter_num)+".csv"), "a") as csvfile:
+					csvwriter = csv.writer(csvfile, delimiter='\t')
+					csvwriter.writerow(row)
+
+	return dataset
+
+
+
+
+
+
 

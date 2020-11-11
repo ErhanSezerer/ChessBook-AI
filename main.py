@@ -6,7 +6,7 @@ from nltk.tokenize import sent_tokenize
 import pandas as pd
 from tqdm import tqdm
 import os
-
+import csv
 
 
 
@@ -17,17 +17,24 @@ import os
 
 
 def main():
+	write2file = True
+	chapter_num = 6
+
 
 	#parse the text and segment out the diagrams
 	path = os.path.join(args.book_path, args.chapter_name)
 	book = parse_text(path)
 
 	#parse the book and find contexts
-	contexts, paragraph_ids = parse_book(book, write2file=True, chapter_num=6)
+	contexts, paragraph_ids = parse_book(book, write2file=write2file, chapter_num=chapter_num)
 
-	#
-	exit()
-	context_parser(contexts[0])
+	if write2file:
+		with open(os.path.join(args.data_path, "dataset_CH"+str(chapter_num)+".csv"), "a") as csvfile:
+			csvwriter = csv.writer(csvfile, delimiter='\t')
+			csvwriter.writerow(["context", "paragraph", "sentence", "label", "moves", "text_moves", "diagrams"])
+
+	for i in tqdm(range(len(contexts))):
+		context_parser(contexts[i], i+1, paragraph_ids[i], write2file=write2file, chapter_num=chapter_num)
 	exit()
 
 	predictions = []
