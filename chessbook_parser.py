@@ -359,6 +359,25 @@ def parse_book(book, write2file = False, chapter_num=0):
 
 	#split the book into paragraphs
 	book_paragraphs = book.split("\n\n")[3:]#first three are chapter headlines
+	temp_paragraphs = []
+	text = ""
+	for par in book_paragraphs:
+		if par.endswith(tuple(string.punctuation)):
+			if not text:
+				text = par
+			else:
+				text += par
+			temp_paragraphs.append(text)
+			text = ""
+		elif not par.strip():
+			if text:
+				temp_paragraphs.append(text)
+			temp_paragraphs.append(par)
+			text = ""
+		else:
+			text += par
+	book_paragraphs = temp_paragraphs
+	
 
 	#write the paragraphs to csv if specified
 	if write2file:
